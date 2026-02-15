@@ -4,9 +4,8 @@ import { Item } from "../models/Item";
 import fs from "fs/promises";
 import path from "path";
 
-
 export const createItem = asyncHandler(async (req: Request, res: Response) => {
-  const { name, description, photoUrl } = req.body;
+  const { name, description, photoUrl, gps } = req.body;
 
   if (!name || !description) {
     res.status(400);
@@ -17,6 +16,7 @@ export const createItem = asyncHandler(async (req: Request, res: Response) => {
     name,
     description,
     photoUrl,
+    gps, // ✅ store if provided
   });
 
   res.status(201).json(newItem);
@@ -51,7 +51,13 @@ export const getItemById = asyncHandler(async (req: Request, res: Response) => {
 
 // PUT /items/:id
 export const updateItem = asyncHandler(async (req: Request, res: Response) => {
-  const { name, description, photoUrl } = req.body;
+  const { name, description, photoUrl, gps } = req.body;
+
+  const existing = await Item.findById(req.params.id);
+  if (!existing) {
+    res.status(404);
+    throw new Error("Item not found");
+  }
 
   // Allow partial updates, but if a field is provided it must not be empty
   const update: Record<string, any> = {};
@@ -72,22 +78,46 @@ export const updateItem = asyncHandler(async (req: Request, res: Response) => {
     update.description = description;
   }
 
+  if (gps !== undefined) {
+    update.gps = gps; // allow {lat,lng} or null
+  }
+
+  // ✅ Photo replacement + cleanup
   if (photoUrl !== undefined) {
-    update.photoUrl = photoUrl;
+    const oldPhotoUrl = existing.photoUrl;
+    const newPhotoUrl = photoUrl;
+
+    // If old exists and is different than new → delete old uploaded file
+    if (oldPhotoUrl && oldPhotoUrl !== newPhotoUrl) {
+      const match = oldPhotoUrl.match(/\/uploads\/([^/?#]+)/);
+      const filename = match?.[1];
+
+      if (filename) {
+        const filePath = path.join(process.cwd(), "uploads", filename);
+        try {
+          await fs.unlink(filePath);
+          console.log("🗑️ Deleted previous uploaded photo:", filePath);
+        } catch (err: any) {
+          if (err?.code !== "ENOENT") {
+            console.warn(
+              "⚠️ Failed to delete previous uploaded photo:",
+              err?.message ?? err
+            );
+          }
+        }
+      }
+    }
+
+    update.photoUrl = newPhotoUrl; // can be string or null
   }
 
-  const updated = await Item.findByIdAndUpdate(req.params.id, update, {
-    new: true,
-    runValidators: true,
-  });
+  // Apply updates and save (validators)
+  existing.set(update);
+  const saved = await existing.save();
 
-  if (!updated) {
-    res.status(404);
-    throw new Error("Item not found");
-  }
-
-  res.json(updated);
+  res.json(saved);
 });
+
 
 // DELETE /items/:id
 export const deleteItem = asyncHandler(async (req: Request, res: Response) => {
@@ -116,7 +146,10 @@ export const deleteItem = asyncHandler(async (req: Request, res: Response) => {
       } catch (err: any) {
         // Don't fail the whole request if file is already missing
         if (err?.code !== "ENOENT") {
-          console.warn("⚠️ Failed to delete uploaded photo:", err?.message ?? err);
+          console.warn(
+            "⚠️ Failed to delete uploaded photo:",
+            err?.message ?? err
+          );
         }
       }
     }
@@ -124,4 +157,3 @@ export const deleteItem = asyncHandler(async (req: Request, res: Response) => {
 
   res.json({ message: "Item deleted" });
 });
-

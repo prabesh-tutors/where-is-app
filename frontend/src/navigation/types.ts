@@ -3,4 +3,5 @@ export type RootStackParamList = {
   ListItems: undefined;
   AddItem: undefined;
   ItemDetails: { id: string };
+  EditItem: { id: string }; 
 };

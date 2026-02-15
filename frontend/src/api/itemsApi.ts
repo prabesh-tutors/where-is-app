@@ -5,9 +5,11 @@ export type Item = {
   name: string;
   description: string;
   photoUrl?: string;
+  gps?: { lat: number; lng: number };
   createdAt: string;
   updatedAt: string;
 };
+
 
 export async function getItems(q?: string): Promise<Item[]> {
   const url = q
@@ -37,20 +39,18 @@ export async function createItem(input: {
   name: string;
   description: string;
   photoUrl: string;
-}): Promise<Item> {
+  gps?: { lat: number; lng: number };
+}) {
   const res = await fetch(`${API_BASE_URL}/items`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`Failed to create item (${res.status}) ${text}`);
-  }
-
+  if (!res.ok) throw new Error("Failed to create item");
   return res.json();
 }
+
 export async function deleteItem(id: string): Promise<void> {
   const res = await fetch(`${API_BASE_URL}/items/${id}`, {
     method: "DELETE",
@@ -98,4 +98,23 @@ export async function uploadPhoto(photoUri: string): Promise<string> {
 
   // Return full public URL to store in MongoDB
   return `${API_BASE_URL}${data.urlPath}`;
+}
+
+export async function updateItem(
+  id: string,
+  input: {
+    name?: string;
+    description?: string;
+    photoUrl?: string;
+    gps?: { lat: number; lng: number } | null;
+  }
+) {
+  const res = await fetch(`${API_BASE_URL}/items/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+
+  if (!res.ok) throw new Error("Failed to update item");
+  return res.json();
 }

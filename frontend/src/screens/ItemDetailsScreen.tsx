@@ -1,28 +1,40 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { View, Text, Image, Button, Alert } from "react-native";
+import ItemMap from "../components/ItemMap";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../navigation/types";
 import { getItemById, deleteItem, Item } from "../api/itemsApi";
+import { useFocusEffect } from "@react-navigation/native";
+
+
 
 type Props = NativeStackScreenProps<RootStackParamList, "ItemDetails">;
 
 export default function ItemDetailsScreen({ route, navigation }: Props) {
   const { id } = route.params;
-
   const [item, setItem] = useState<Item | null>(null);
   const [error, setError] = useState("");
 
-  useEffect(() => {
+useFocusEffect(
+  useCallback(() => {
+    let alive = true;
+
     (async () => {
       try {
         setError("");
         const data = await getItemById(id);
-        setItem(data);
+        if (alive) setItem(data);
       } catch (e: any) {
-        setError(e?.message ?? "Unknown error");
+        if (alive) setError(e?.message ?? "Unknown error");
       }
     })();
-  }, [id]);
+
+    return () => {
+      alive = false;
+    };
+  }, [id])
+);
+
 
   const confirmDelete = () => {
     Alert.alert("Delete item?", "This cannot be undone.", [
@@ -31,29 +43,38 @@ export default function ItemDetailsScreen({ route, navigation }: Props) {
         text: "Delete",
         style: "destructive",
         onPress: async () => {
-          try {
-            await deleteItem(id);
-            navigation.goBack();
-          } catch (e: any) {
-            setError(e?.message ?? "Failed to delete item");
-          }
+          await deleteItem(id);
+          navigation.goBack();
         },
       },
     ]);
   };
 
+  if (error) {
+    return (
+      <View style={{ flex: 1, padding: 16 }}>
+        <Text style={{ color: "red" }}>{error}</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={{ flex: 1, padding: 16 }}>
-      {error ? <Text style={{ color: "red" }}>{error}</Text> : null}
-
       {!item ? (
-        <Text style={{ marginTop: 12 }}>Loading...</Text>
+        <Text>Loading...</Text>
       ) : (
         <>
           <Text style={{ fontSize: 20, fontWeight: "800" }}>{item.name}</Text>
 
           <Text style={{ marginTop: 8 }}>{item.description}</Text>
 
+          {item.gps ? (
+            <ItemMap lat={item.gps.lat} lng={item.gps.lng} label={item.name} />
+          ) : (
+            <Text style={{ marginTop: 12, color: "gray" }}>No GPS saved</Text>
+          )}
+
+          {/* PHOTO */}
           {item.photoUrl ? (
             <Image
               source={{ uri: item.photoUrl }}
@@ -66,14 +87,16 @@ export default function ItemDetailsScreen({ route, navigation }: Props) {
               resizeMode="cover"
             />
           ) : (
-            <Text style={{ marginTop: 12, color: "gray" }}>
-              No photo saved for this item.
-            </Text>
+            <Text style={{ marginTop: 12 }}>No photo saved</Text>
           )}
 
-          <View style={{ marginTop: 12 }}>
-            <Button title="Delete item" onPress={confirmDelete} />
-          </View>
+          <View style={{ marginTop: 12, gap: 10 }}>
+  <Button
+    title="Update item"
+    onPress={() => navigation.navigate("EditItem", { id })}
+  />
+  <Button title="Delete item" onPress={confirmDelete} />
+</View>
         </>
       )}
     </View>

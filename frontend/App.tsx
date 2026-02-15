@@ -6,6 +6,10 @@ import HomeScreen from "./src/screens/HomeScreen";
 import ListItemsScreen from "./src/screens/ListItemsScreen";
 import AddItemScreen from "./src/screens/AddItemScreen";
 import ItemDetailsScreen from "./src/screens/ItemDetailsScreen";
+import EditItemScreen from "./src/screens/EditItemScreen";
+
+
+
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -33,6 +37,8 @@ export default function App() {
           component={ItemDetailsScreen}
           options={{ title: "Details" }}
         />
+        <Stack.Screen name="EditItem" component={EditItemScreen} />
+
       </Stack.Navigator>
     </NavigationContainer>
   );
