@@ -1,12 +1,11 @@
 import React, { useCallback, useState } from "react";
 import { View, Text, Image, Button, Alert } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import ItemMap from "../components/ItemMap";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../navigation/types";
 import { getItemById, deleteItem, Item } from "../api/itemsApi";
-import { useFocusEffect } from "@react-navigation/native";
-
-
+import { API_BASE_URL } from "../config/api";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ItemDetails">;
 
@@ -15,26 +14,32 @@ export default function ItemDetailsScreen({ route, navigation }: Props) {
   const [item, setItem] = useState<Item | null>(null);
   const [error, setError] = useState("");
 
-useFocusEffect(
-  useCallback(() => {
-    let alive = true;
+  const getPhotoUri = (photoUrl?: string) => {
+    if (!photoUrl) return undefined;
+    return photoUrl.startsWith("http")
+      ? photoUrl
+      : `${API_BASE_URL}${photoUrl}`;
+  };
 
-    (async () => {
-      try {
-        setError("");
-        const data = await getItemById(id);
-        if (alive) setItem(data);
-      } catch (e: any) {
-        if (alive) setError(e?.message ?? "Unknown error");
-      }
-    })();
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
 
-    return () => {
-      alive = false;
-    };
-  }, [id])
-);
+      (async () => {
+        try {
+          setError("");
+          const data = await getItemById(id);
+          if (alive) setItem(data);
+        } catch (e: any) {
+          if (alive) setError(e?.message ?? "Unknown error");
+        }
+      })();
 
+      return () => {
+        alive = false;
+      };
+    }, [id])
+  );
 
   const confirmDelete = () => {
     Alert.alert("Delete item?", "This cannot be undone.", [
@@ -74,10 +79,9 @@ useFocusEffect(
             <Text style={{ marginTop: 12, color: "gray" }}>No GPS saved</Text>
           )}
 
-          {/* PHOTO */}
           {item.photoUrl ? (
             <Image
-              source={{ uri: item.photoUrl }}
+              source={{ uri: getPhotoUri(item.photoUrl) }}
               style={{
                 width: "100%",
                 height: 260,
@@ -91,12 +95,12 @@ useFocusEffect(
           )}
 
           <View style={{ marginTop: 12, gap: 10 }}>
-  <Button
-    title="Update item"
-    onPress={() => navigation.navigate("EditItem", { id })}
-  />
-  <Button title="Delete item" onPress={confirmDelete} />
-</View>
+            <Button
+              title="Update item"
+              onPress={() => navigation.navigate("EditItem", { id })}
+            />
+            <Button title="Delete item" onPress={confirmDelete} />
+          </View>
         </>
       )}
     </View>

@@ -4,6 +4,7 @@ import * as ImagePicker from "expo-image-picker";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../navigation/types";
 import { getItemById, updateItem, uploadPhoto } from "../api/itemsApi";
+import { API_BASE_URL } from "../config/api";
 
 type Props = NativeStackScreenProps<RootStackParamList, "EditItem">;
 
@@ -15,13 +16,18 @@ export default function EditItemScreen({ route, navigation }: Props) {
   const [currentPhotoUrl, setCurrentPhotoUrl] = useState<string | undefined>(
     undefined
   );
-
-  // new photo taken (local uri)
   const [newPhotoUri, setNewPhotoUri] = useState<string>("");
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  const getPhotoUri = (photoUrl?: string) => {
+    if (!photoUrl) return undefined;
+    return photoUrl.startsWith("http")
+      ? photoUrl
+      : `${API_BASE_URL}${photoUrl}`;
+  };
 
   useEffect(() => {
     (async () => {
@@ -70,7 +76,6 @@ export default function EditItemScreen({ route, navigation }: Props) {
     try {
       setSaving(true);
 
-      // If user took a new photo → upload it and get new URL
       let photoUrlToSave = currentPhotoUrl;
 
       if (newPhotoUri) {
@@ -80,7 +85,7 @@ export default function EditItemScreen({ route, navigation }: Props) {
       await updateItem(id, {
         name: name.trim(),
         description: description.trim(),
-        photoUrl: photoUrlToSave, // ✅ triggers backend cleanup if changed
+        photoUrl: photoUrlToSave,
       });
 
       navigation.goBack();
@@ -117,7 +122,6 @@ export default function EditItemScreen({ route, navigation }: Props) {
 
           <Button title="Take new photo (replace)" onPress={takeNewPhoto} />
 
-          {/* Preview: new photo if taken, otherwise current photoUrl */}
           {newPhotoUri ? (
             <Image
               source={{ uri: newPhotoUri }}
@@ -126,7 +130,7 @@ export default function EditItemScreen({ route, navigation }: Props) {
             />
           ) : currentPhotoUrl ? (
             <Image
-              source={{ uri: currentPhotoUrl }}
+              source={{ uri: getPhotoUri(currentPhotoUrl) }}
               style={{ width: "100%", height: 260, borderRadius: 8 }}
               resizeMode="cover"
             />
